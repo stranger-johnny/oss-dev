@@ -38,53 +38,59 @@ oss-dev/
 
 ## 公開フロー
 
-`oss-dev/main` で `public/**` が変更されると、GitHub Actions が自動で公開用 Pull Request を作成します。
-手動実行も可能です。
+`oss-dev/main` で `public/**` が変更されると、GitHub Actions が自動で `oss` に
+同期ブランチを push します。手動実行も可能です。
+PRの作成だけは、作成者を実際の開発者にするため本人がワンクリックで行います。
 
 ```text
 oss-dev/main
-  ↓
+  ↓ (CI 自動)
 git subtree split --prefix=public
-  ↓
-oss の sync/* ブランチへ push
-  ↓
-oss:main への Pull Request 作成
+  ↓ (CI 自動・デプロイキーで push)
+oss の sync/* ブランチ
+  ↓ (本人がジョブサマリの Compare リンクをクリック)
+oss:main への Pull Request 作成（作成者=本人）
   ↓
 メンテナがレビューしてマージ
 ```
 
 処理内容は次の通りです。
 
-1. `git subtree split --prefix=public` で `public/` だけを切り出す
-2. 切り出した内容を `oss` の `sync/<timestamp>` ブランチへ push する
-3. `oss:main` への Pull Request を作成する
+1. `git subtree split --prefix=public` で `public/` だけを切り出す（CI）
+2. 切り出した内容を `oss` の `sync/<timestamp>` ブランチへ push する（CI）
+3. ジョブサマリに出力される Compare リンクから、本人がPRを作成する
+
+PR作成を完全自動化しない理由: PRの「作成者」は認証情報の持ち主に固定される
+ため、CIの共有認証で作ると常に同じ個人/Botになってしまう。最後のPR作成だけを
+本人が行うことで、作成者を実際の開発者にできる。
 
 ## 初回セットアップ
 
-公開ワークフローは GitHub App のインストールトークンで `oss` を操作します。
-個人アカウントに依存せず、実行のたびに短命なトークンを発行します。
+`oss` への push には、個人にも Bot にも紐づかない「デプロイキー（リポジトリ
+専用のSSH鍵）」を使います。GitHub App も個人PATも不要です。
 
-### 1. GitHub App を作成する
+### 1. デプロイキーを生成する
 
-GitHub → Settings → Developer settings → GitHub Apps → New GitHub App
+```bash
+ssh-keygen -t ed25519 -N "" -f oss-deploy -C "oss-dev sync"
+# 公開鍵: oss-deploy.pub / 秘密鍵: oss-deploy
+```
 
-- Repository permissions:
-  - `Contents: Read and write`
-  - `Pull requests: Read and write`
-- Webhook は不要（Active のチェックを外す）
-- 作成後、`Generate a private key` で秘密鍵（`.pem`）を発行する
-- `App ID` を控えておく
+### 2. 公開鍵を `oss` に登録する
 
-### 2. App を `oss` にインストールする
+`oss` → Settings → Deploy keys → Add deploy key
 
-作成した App の `Install App` から、`stranger-johnny/oss` にのみインストールします。
+- Key: `oss-deploy.pub` の内容
+- **Allow write access にチェック**（push に必要）
 
-### 3. Secret を登録する
+### 3. 秘密鍵を `oss-dev` の Secret に登録する
 
-`oss-dev` の Repository Secret（または Organization Secret）に次の2つを登録します。
+`oss-dev` → Settings → Secrets and variables → Actions → New repository secret
 
-- `SYNC_APP_ID`: 作成した App の App ID
-- `SYNC_APP_PRIVATE_KEY`: 発行した秘密鍵（`.pem` の中身をそのまま貼り付け）
+- Name: `OSS_DEPLOY_KEY`
+- Secret: `oss-deploy`（秘密鍵）の内容をそのまま貼り付け
+
+登録後、ローカルの鍵ファイル（`oss-deploy` / `oss-deploy.pub`）は削除して構いません。
 
 ### 4. ブランチ保護を設定する
 

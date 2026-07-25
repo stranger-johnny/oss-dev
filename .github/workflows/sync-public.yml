@@ -1,6 +1,8 @@
-# oss-dev/public/ を公開リポジトリ `oss` へPRとして同期する。
-# 事前に GitHub App を `oss` にインストールし、その App ID と秘密鍵を
-# Secret（SYNC_APP_ID / SYNC_APP_PRIVATE_KEY）に設定すること。
+# oss-dev/public/ を公開リポジトリ `oss` へ同期する。
+#
+# subtree split とブランチ push までを自動化し、最後のPR作成だけ本人が
+# ワンクリックで行う（PRの作成者を実際の開発者にするため）。
+# push には `oss` に登録したデプロイキー（Secret: OSS_DEPLOY_KEY）を使う。
 name: Sync public → oss
 
 on:
@@ -27,15 +29,6 @@ jobs:
   sync:
     runs-on: ubuntu-latest
     steps:
-      - name: Generate GitHub App token
-        id: app-token
-        uses: actions/create-github-app-token@v1
-        with:
-          app-id: ${{ secrets.SYNC_APP_ID }}
-          private-key: ${{ secrets.SYNC_APP_PRIVATE_KEY }}
-          owner: stranger-johnny
-          repositories: oss
-
       - name: Checkout oss-dev (full history)
         uses: actions/checkout@v4
         with:
@@ -46,6 +39,24 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
+      - name: Configure deploy key
+        env:
+          DEPLOY_KEY: ${{ secrets.OSS_DEPLOY_KEY }}
+        run: |
+          if [ -z "$DEPLOY_KEY" ]; then
+            echo "::error::OSS_DEPLOY_KEY secret is not set."
+            exit 1
+          fi
+          mkdir -p ~/.ssh
+          printf '%s\n' "$DEPLOY_KEY" > ~/.ssh/oss_deploy
+          chmod 600 ~/.ssh/oss_deploy
+          ssh-keyscan -t rsa,ed25519 github.com >> ~/.ssh/known_hosts 2>/dev/null
+          cat > ~/.ssh/config <<'EOF'
+          Host github.com
+            IdentityFile ~/.ssh/oss_deploy
+            IdentitiesOnly yes
+          EOF
+
       - name: Split public/ subtree
         id: split
         run: |
@@ -55,35 +66,23 @@ jobs:
 
       - name: Push to public repo
         env:
-          TOKEN: ${{ steps.app-token.outputs.token }}
           BRANCH: ${{ steps.split.outputs.branch }}
         run: |
-          git push "https://x-access-token:${TOKEN}@github.com/${PUBLIC_REPO}.git" \
-            "${BRANCH}:${BRANCH}"
+          git push "git@github.com:${PUBLIC_REPO}.git" "${BRANCH}:${BRANCH}"
 
-      - name: Open Pull Request on public repo
+      - name: Emit "Create PR" link
         env:
-          GH_TOKEN: ${{ steps.app-token.outputs.token }}
           BRANCH: ${{ steps.split.outputs.branch }}
-          ACTOR: ${{ github.actor }}
         run: |
-          cat > /tmp/pr-body.md <<EOF
-          \`oss-dev/${PREFIX}\` から \`git subtree split\` で自動同期しました。
-
-          - 実行者: @${ACTOR}
-          - 元コミット: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/commit/${GITHUB_SHA}
-
-          > このPR自体は自動化用トークンによって作成されていますが、
-          > コミットの author は実際の開発者の情報を保持しています。
-          EOF
-
-          PR_URL="$(gh pr create \
-            --repo "$PUBLIC_REPO" \
-            --base "$BASE_BRANCH" \
-            --head "$BRANCH" \
-            --title "oss-dev から公開コードを同期 ($BRANCH)" \
-            --body-file /tmp/pr-body.md)"
-          echo "Created PR: $PR_URL"
-
-          gh pr edit "$PR_URL" --add-assignee "$ACTOR" \
-            || echo "::warning::@${ACTOR} をPRにアサインできませんでした。"
+          # 本人のアカウントでPRを作成できるよう、フォーム展開済みの Compare
+          # リンクをジョブサマリに出力する（このリンクから作ると作成者=本人）。
+          COMPARE_URL="${GITHUB_SERVER_URL}/${PUBLIC_REPO}/compare/${BASE_BRANCH}...${BRANCH}?expand=1"
+          {
+            echo "### 公開PRを作成してください"
+            echo ""
+            echo "同期ブランチ \`${BRANCH}\` を \`${PUBLIC_REPO}\` に push しました。"
+            echo "次のリンクからPRを作成すると、作成者はあなた自身になります。"
+            echo ""
+            echo "[Compare & pull request →](${COMPARE_URL})"
+          } >> "$GITHUB_STEP_SUMMARY"
+          echo "Compare URL: ${COMPARE_URL}"
