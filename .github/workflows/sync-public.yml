@@ -1,6 +1,6 @@
 # oss-dev/public/ を公開リポジトリ `oss` へ同期する。
 #
-# subtree split とブランチ push までを自動化し、最後のPR作成だけ本人が
+# subtree split とPR用ブランチ push までを自動化し、最後のPR作成だけ本人が
 # ワンクリックで行う（PRの作成者を実際の開発者にするため）。
 # push には `oss` に登録したデプロイキー（Secret: OSS_DEPLOY_KEY）を使う。
 name: Sync public → oss
@@ -61,14 +61,28 @@ jobs:
         id: split
         run: |
           BRANCH="sync/$(date -u +%Y%m%d-%H%M%S)-${GITHUB_SHA::7}"
-          git subtree split --prefix="$PREFIX" -b "$BRANCH"
+          SPLIT_BRANCH="split/${BRANCH#sync/}"
+          git subtree split --prefix="$PREFIX" -b "$SPLIT_BRANCH"
           echo "branch=$BRANCH" >> "$GITHUB_OUTPUT"
+          echo "split_branch=$SPLIT_BRANCH" >> "$GITHUB_OUTPUT"
+
+      - name: Build PR branch from public main
+        env:
+          BRANCH: ${{ steps.split.outputs.branch }}
+          SPLIT_BRANCH: ${{ steps.split.outputs.split_branch }}
+        run: |
+          git remote add public "git@github.com:${PUBLIC_REPO}.git"
+          git fetch public "$BASE_BRANCH"
+          git switch -c "$BRANCH" FETCH_HEAD
+          git merge --allow-unrelated-histories --no-ff --no-commit "$SPLIT_BRANCH"
+          git read-tree --reset -u "$SPLIT_BRANCH"
+          git commit -m "chore: sync public from oss-dev"
 
       - name: Push to public repo
         env:
           BRANCH: ${{ steps.split.outputs.branch }}
         run: |
-          git push "git@github.com:${PUBLIC_REPO}.git" "${BRANCH}:${BRANCH}"
+          git push public "${BRANCH}:${BRANCH}"
 
       - name: Emit "Create PR" link
         env:

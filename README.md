@@ -46,6 +46,8 @@ PRの作成だけは、作成者を実際の開発者にするため本人がワ
 oss-dev/main
   ↓ (CI 自動)
 git subtree split --prefix=public
+  ↓ (CI 自動)
+oss/main を起点にした sync/* ブランチへ反映
   ↓ (CI 自動・デプロイキーで push)
 oss の sync/* ブランチ
   ↓ (本人がジョブサマリの Compare リンクをクリック)
@@ -57,12 +59,17 @@ oss:main への Pull Request 作成（作成者=本人）
 処理内容は次の通りです。
 
 1. `git subtree split --prefix=public` で `public/` だけを切り出す（CI）
-2. 切り出した内容を `oss` の `sync/<timestamp>` ブランチへ push する（CI）
-3. ジョブサマリに出力される Compare リンクから、本人がPRを作成する
+2. `oss/main` を起点にした `sync/<timestamp>` ブランチを作る（CI）
+3. 切り出した `public/` の内容を `sync/<timestamp>` に反映する（CI）
+4. `sync/<timestamp>` を `oss` に push する（CI）
+5. ジョブサマリに出力される Compare リンクから、本人がPRを作成する
 
 PR作成を完全自動化しない理由: PRの「作成者」は認証情報の持ち主に固定される
 ため、CIの共有認証で作ると常に同じ個人/Botになってしまう。最後のPR作成だけを
 本人が行うことで、作成者を実際の開発者にできる。
+
+`sync/*` ブランチは `oss/main` を起点に作るため、GitHub 上で
+`entirely different commit histories` にならず、通常のPull Requestとして比較できます。
 
 ## 初回セットアップ
 
