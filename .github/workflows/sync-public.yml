@@ -1,7 +1,7 @@
 # oss-dev/public/ を公開リポジトリ `oss` へ同期する。
 #
-# subtree split とPR用ブランチ push までを自動化し、最後のPR作成だけ本人が
-# ワンクリックで行う（PRの作成者を実際の開発者にするため）。
+# public/ の中身をスナップショット（1コミット）として oss/main を親にした
+# sync ブランチに push する。PR作成だけは作成者を実開発者にするため本人が行う。
 # push には `oss` に登録したデプロイキー（Secret: OSS_DEPLOY_KEY）を使う。
 name: Sync public → oss
 
@@ -29,15 +29,8 @@ jobs:
   sync:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout oss-dev (full history)
+      - name: Checkout oss-dev
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Configure git identity
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
       - name: Configure deploy key
         env:
@@ -57,39 +50,27 @@ jobs:
             IdentitiesOnly yes
           EOF
 
-      - name: Split public/ subtree
-        id: split
-        run: |
-          BRANCH="sync/$(date -u +%Y%m%d-%H%M%S)-${GITHUB_SHA::7}"
-          SPLIT_BRANCH="split/${BRANCH#sync/}"
-          git subtree split --prefix="$PREFIX" -b "$SPLIT_BRANCH"
-          echo "branch=$BRANCH" >> "$GITHUB_OUTPUT"
-          echo "split_branch=$SPLIT_BRANCH" >> "$GITHUB_OUTPUT"
-
-      - name: Build PR branch from public main
+      - name: Publish public/ to a sync branch
+        id: sync
         env:
-          BRANCH: ${{ steps.split.outputs.branch }}
-          SPLIT_BRANCH: ${{ steps.split.outputs.split_branch }}
+          GIT_AUTHOR_NAME: github-actions[bot]
+          GIT_AUTHOR_EMAIL: 41898282+github-actions[bot]@users.noreply.github.com
+          GIT_COMMITTER_NAME: github-actions[bot]
+          GIT_COMMITTER_EMAIL: 41898282+github-actions[bot]@users.noreply.github.com
         run: |
           git remote add public "git@github.com:${PUBLIC_REPO}.git"
           git fetch public "$BASE_BRANCH"
-          git switch -c "$BRANCH" FETCH_HEAD
-          git merge --allow-unrelated-histories --no-ff --no-commit "$SPLIT_BRANCH"
-          git read-tree --reset -u "$SPLIT_BRANCH"
-          git commit -m "chore: sync public from oss-dev"
-
-      - name: Push to public repo
-        env:
-          BRANCH: ${{ steps.split.outputs.branch }}
-        run: |
-          git push public "${BRANCH}:${BRANCH}"
+          BRANCH="sync/$(date -u +%Y%m%d-%H%M%S)-${GITHUB_SHA::7}"
+          # public/ の tree を、oss/main を親にした1コミットにして push する。
+          TREE="$(git rev-parse "HEAD:${PREFIX}")"
+          COMMIT="$(git commit-tree "$TREE" -p "public/${BASE_BRANCH}" -m "chore: sync public from oss-dev")"
+          git push public "${COMMIT}:refs/heads/${BRANCH}"
+          echo "branch=$BRANCH" >> "$GITHUB_OUTPUT"
 
       - name: Emit "Create PR" link
         env:
-          BRANCH: ${{ steps.split.outputs.branch }}
+          BRANCH: ${{ steps.sync.outputs.branch }}
         run: |
-          # 本人のアカウントでPRを作成できるよう、フォーム展開済みの Compare
-          # リンクをジョブサマリに出力する（このリンクから作ると作成者=本人）。
           COMPARE_URL="${GITHUB_SERVER_URL}/${PUBLIC_REPO}/compare/${BASE_BRANCH}...${BRANCH}?expand=1"
           {
             echo "### 公開PRを作成してください"
