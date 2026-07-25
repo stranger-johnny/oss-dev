@@ -1,0 +1,24 @@
+{
+  "name": "oss",
+  "version": "0.1.0",
+  "description": "A small, well-tested OSS utility library.",
+  "type": "module",
+  "main": "src/index.js",
+  "exports": {
+    ".": "./src/index.js"
+  },
+  "files": [
+    "src"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "test": "node --test"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/stranger-johnny/oss.git"
+  }
+}

@@ -1,0 +1,3 @@
+# The whole public repository is owned by the maintainers.
+# Combined with branch protection, this blocks unreviewed changes to main.
+*       @stranger-johnny

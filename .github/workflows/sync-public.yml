@@ -1,0 +1,73 @@
+# Publishes oss-dev/public/ to the public `oss` repository.
+#
+# Flow: git subtree split (public/) -> push sync/<ts> branch to `oss` -> open PR.
+# A maintainer reviews and merges that PR into oss:main.
+#
+# Requires a secret PUBLIC_SYNC_TOKEN that can push to and open PRs on `oss`
+# (fine-grained PAT: Contents R/W + Pull requests R/W, or classic PAT: repo).
+name: Sync public → oss
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "public/**"
+      - ".github/workflows/sync-public.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: sync-public
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  PREFIX: public
+  PUBLIC_REPO: stranger-johnny/oss
+  BASE_BRANCH: main
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout oss-dev (full history)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Configure git identity
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Split public/ subtree
+        id: split
+        run: |
+          BRANCH="sync/$(date -u +%Y%m%d-%H%M%S)-${GITHUB_SHA::7}"
+          git subtree split --prefix="$PREFIX" -b "$BRANCH"
+          echo "branch=$BRANCH" >> "$GITHUB_OUTPUT"
+
+      - name: Push to public repo
+        env:
+          TOKEN: ${{ secrets.PUBLIC_SYNC_TOKEN }}
+          BRANCH: ${{ steps.split.outputs.branch }}
+        run: |
+          if [ -z "$TOKEN" ]; then
+            echo "::error::PUBLIC_SYNC_TOKEN secret is not set."
+            exit 1
+          fi
+          git push "https://x-access-token:${TOKEN}@github.com/${PUBLIC_REPO}.git" \
+            "${BRANCH}:${BRANCH}"
+
+      - name: Open Pull Request on public repo
+        env:
+          GH_TOKEN: ${{ secrets.PUBLIC_SYNC_TOKEN }}
+          BRANCH: ${{ steps.split.outputs.branch }}
+        run: |
+          gh pr create \
+            --repo "$PUBLIC_REPO" \
+            --base "$BASE_BRANCH" \
+            --head "$BRANCH" \
+            --title "Sync public from oss-dev ($BRANCH)" \
+            --body "Automated publish from \`oss-dev/${PREFIX}\` via \`git subtree split\`.\n\nSource commit: ${GITHUB_SHA}"
