@@ -1,18 +1,18 @@
 # oss
 
-A small, well-tested OSS utility library.
+小さく、テストしやすいOSSユーティリティライブラリです。
 
-> This repository is a **public mirror**. Development happens in a separate
-> private repository and only reviewed code is published here. See
-> [CONTRIBUTING.md](./CONTRIBUTING.md).
+> このリポジトリは **公開用ミラー** です。
+> 開発は別の非公開リポジトリで行われ、レビュー済みのコードだけが公開されます。
+> 詳しくは [CONTRIBUTING.md](./CONTRIBUTING.md) を参照してください。
 
-## Install
+## インストール
 
 ```bash
 npm install oss
 ```
 
-## Usage
+## 使い方
 
 ```js
 import { greet, sum } from "oss";
@@ -22,12 +22,12 @@ greet("Kenta");   // "Hello, Kenta!"
 sum([1, 2, 3]);   // 6
 ```
 
-## Development
+## テスト
 
 ```bash
 npm test
 ```
 
-## License
+## ライセンス
 
 [MIT](./LICENSE)
