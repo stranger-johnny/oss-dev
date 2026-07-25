@@ -11,6 +11,11 @@ on:
       - "public/**"
       - ".github/workflows/sync-public.yml"
   workflow_dispatch:
+    inputs:
+      title:
+        description: "公開PRのタイトル（未入力ならソースコミットの件名を使う）"
+        required: false
+        type: string
 
 concurrency:
   group: sync-public
@@ -52,6 +57,7 @@ jobs:
       - name: Publish public/ to a sync branch
         id: sync
         env:
+          TITLE_INPUT: ${{ inputs.title }}
           GIT_AUTHOR_NAME: github-actions[bot]
           GIT_AUTHOR_EMAIL: 41898282+github-actions[bot]@users.noreply.github.com
           GIT_COMMITTER_NAME: github-actions[bot]
@@ -60,9 +66,11 @@ jobs:
           git remote add public "git@github.com:${PUBLIC_REPO}.git"
           git fetch public "$BASE_BRANCH"
           BRANCH="sync/$(date -u +%Y%m%d-%H%M%S)-${GITHUB_SHA::7}"
+          # コミットメッセージ＝PRタイトル（単一コミットならGitHubが初期値に使う）。
+          MESSAGE="${TITLE_INPUT:-$(git log -1 --format=%s HEAD)}"
           # public/ の tree を、oss/main を親にした1コミットにして push する。
           TREE="$(git rev-parse "HEAD:${PREFIX}")"
-          COMMIT="$(git commit-tree "$TREE" -p "public/${BASE_BRANCH}" -m "chore: sync public from oss-dev")"
+          COMMIT="$(git commit-tree "$TREE" -p "public/${BASE_BRANCH}" -m "$MESSAGE")"
           git push public "${COMMIT}:refs/heads/${BRANCH}"
           echo "branch=$BRANCH" >> "$GITHUB_OUTPUT"
 

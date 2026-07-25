@@ -27,14 +27,17 @@ fi
 
 git fetch "$PUBLIC_REMOTE" "$BASE_BRANCH"
 
+# コミットメッセージ＝PRタイトル。第1引数があればそれを、無ければ元コミット件名を使う。
+message="${1:-$(git log -1 --format=%s HEAD)}"
+
 # public/ の tree を、oss/main を親にした1コミットにして push する。
 tree="$(git rev-parse "HEAD:${PREFIX}")"
-commit="$(git commit-tree "$tree" -p "${PUBLIC_REMOTE}/${BASE_BRANCH}" -m "chore: sync public from oss-dev")"
+commit="$(git commit-tree "$tree" -p "${PUBLIC_REMOTE}/${BASE_BRANCH}" -m "$message")"
 git push "$PUBLIC_REMOTE" "${commit}:refs/heads/${SYNC_BRANCH}"
 
 gh pr create \
   --repo "$PUBLIC_REPO" \
   --base "$BASE_BRANCH" \
   --head "$SYNC_BRANCH" \
-  --title "oss-dev から公開コードを同期" \
+  --title "$message" \
   --body "oss-dev/${PREFIX} のスナップショットを公開します。"
