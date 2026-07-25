@@ -1,5 +1,6 @@
 # oss-dev/public/ を公開リポジトリ `oss` へPRとして同期する。
-# 事前に `oss` へ push / PR 作成できる `PUBLIC_SYNC_TOKEN` を設定すること。
+# 事前に GitHub App を `oss` にインストールし、その App ID と秘密鍵を
+# Secret（SYNC_APP_ID / SYNC_APP_PRIVATE_KEY）に設定すること。
 name: Sync public → oss
 
 on:
@@ -26,6 +27,15 @@ jobs:
   sync:
     runs-on: ubuntu-latest
     steps:
+      - name: Generate GitHub App token
+        id: app-token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.SYNC_APP_ID }}
+          private-key: ${{ secrets.SYNC_APP_PRIVATE_KEY }}
+          owner: stranger-johnny
+          repositories: oss
+
       - name: Checkout oss-dev (full history)
         uses: actions/checkout@v4
         with:
@@ -45,19 +55,15 @@ jobs:
 
       - name: Push to public repo
         env:
-          TOKEN: ${{ secrets.PUBLIC_SYNC_TOKEN }}
+          TOKEN: ${{ steps.app-token.outputs.token }}
           BRANCH: ${{ steps.split.outputs.branch }}
         run: |
-          if [ -z "$TOKEN" ]; then
-            echo "::error::PUBLIC_SYNC_TOKEN secret is not set."
-            exit 1
-          fi
           git push "https://x-access-token:${TOKEN}@github.com/${PUBLIC_REPO}.git" \
             "${BRANCH}:${BRANCH}"
 
       - name: Open Pull Request on public repo
         env:
-          GH_TOKEN: ${{ secrets.PUBLIC_SYNC_TOKEN }}
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
           BRANCH: ${{ steps.split.outputs.branch }}
           ACTOR: ${{ github.actor }}
         run: |

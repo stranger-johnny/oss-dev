@@ -61,17 +61,34 @@ oss:main への Pull Request 作成
 
 ## 初回セットアップ
 
-`oss-dev` に `PUBLIC_SYNC_TOKEN` という Repository Secret または Organization Secret を作成してください。
+公開ワークフローは GitHub App のインストールトークンで `oss` を操作します。
+個人アカウントに依存せず、実行のたびに短命なトークンを発行します。
 
-このトークンには、`stranger-johnny/oss` に対して以下の権限が必要です。
+### 1. GitHub App を作成する
 
-- Fine-grained PAT の場合:
+GitHub → Settings → Developer settings → GitHub Apps → New GitHub App
+
+- Repository permissions:
   - `Contents: Read and write`
   - `Pull requests: Read and write`
-- Classic PAT の場合:
-  - `repo`
+- Webhook は不要（Active のチェックを外す）
+- 作成後、`Generate a private key` で秘密鍵（`.pem`）を発行する
+- `App ID` を控えておく
 
-その後、`oss:main` にブランチ保護を設定してください。
+### 2. App を `oss` にインストールする
+
+作成した App の `Install App` から、`stranger-johnny/oss` にのみインストールします。
+
+### 3. Secret を登録する
+
+`oss-dev` の Repository Secret（または Organization Secret）に次の2つを登録します。
+
+- `SYNC_APP_ID`: 作成した App の App ID
+- `SYNC_APP_PRIVATE_KEY`: 発行した秘密鍵（`.pem` の中身をそのまま貼り付け）
+
+### 4. ブランチ保護を設定する
+
+`oss:main` にブランチ保護を設定してください。
 
 - Pull Request 経由の更新を必須にする
 - 直接 push を禁止する
