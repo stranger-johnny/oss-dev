@@ -2,7 +2,6 @@
 #
 # public/ の中身をスナップショット（1コミット）として oss/main を親にした
 # sync ブランチに push する。PR作成だけは作成者を実開発者にするため本人が行う。
-# push には `oss` に登録したデプロイキー（Secret: OSS_DEPLOY_KEY）を使う。
 name: Sync public → oss
 
 on:
