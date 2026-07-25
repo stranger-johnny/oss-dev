@@ -1,5 +1,5 @@
-# CI that runs INSIDE the public `oss` repository.
-# This file is mirrored from oss-dev/public/.github/workflows/ci.yml.
+# 公開リポジトリ `oss` で実行されるCI。
+# このファイルは oss-dev/public/.github/workflows/ci.yml から同期される。
 name: CI
 
 on:

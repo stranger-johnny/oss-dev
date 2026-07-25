@@ -1,10 +1,5 @@
-# Publishes oss-dev/public/ to the public `oss` repository.
-#
-# Flow: git subtree split (public/) -> push sync/<ts> branch to `oss` -> open PR.
-# A maintainer reviews and merges that PR into oss:main.
-#
-# Requires a secret PUBLIC_SYNC_TOKEN that can push to and open PRs on `oss`
-# (fine-grained PAT: Contents R/W + Pull requests R/W, or classic PAT: repo).
+# oss-dev/public/ を公開リポジトリ `oss` へPRとして同期する。
+# 事前に `oss` へ push / PR 作成できる `PUBLIC_SYNC_TOKEN` を設定すること。
 name: Sync public → oss
 
 on:
@@ -64,31 +59,25 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.PUBLIC_SYNC_TOKEN }}
           BRANCH: ${{ steps.split.outputs.branch }}
-          # The developer who triggered this run (push author / manual runner).
           ACTOR: ${{ github.actor }}
         run: |
-          # PR is opened by the token identity (a bot), but the commits inside
-          # keep their original authors (preserved by `git subtree split`), and
-          # we assign + mention the triggering developer so credit is clear.
           cat > /tmp/pr-body.md <<EOF
-          Automated publish from \`oss-dev/${PREFIX}\` via \`git subtree split\`.
+          \`oss-dev/${PREFIX}\` から \`git subtree split\` で自動同期しました。
 
-          - Triggered by: @${ACTOR}
-          - Source commit: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/commit/${GITHUB_SHA}
+          - 実行者: @${ACTOR}
+          - 元コミット: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/commit/${GITHUB_SHA}
 
-          > Note: this PR was opened by an automation bot, but the commit
-          > authors above are the real contributors.
+          > このPR自体は自動化用トークンによって作成されていますが、
+          > コミットの author は実際の開発者の情報を保持しています。
           EOF
 
           PR_URL="$(gh pr create \
             --repo "$PUBLIC_REPO" \
             --base "$BASE_BRANCH" \
             --head "$BRANCH" \
-            --title "Sync public from oss-dev ($BRANCH)" \
+            --title "oss-dev から公開コードを同期 ($BRANCH)" \
             --body-file /tmp/pr-body.md)"
           echo "Created PR: $PR_URL"
 
-          # Attribute the PR to the triggering developer (non-fatal if they
-          # cannot be assigned, e.g. no access to the public repo).
           gh pr edit "$PR_URL" --add-assignee "$ACTOR" \
-            || echo "::warning::Could not assign @${ACTOR} to the PR."
+            || echo "::warning::@${ACTOR} をPRにアサインできませんでした。"

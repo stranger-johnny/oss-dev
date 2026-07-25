@@ -1,4 +1,4 @@
-# Development CI: verifies the publishable code in public/ on every change.
+# 開発用CI: 公開対象である public/ を検証する。
 name: CI
 
 on:

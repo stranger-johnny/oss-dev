@@ -1,11 +1,11 @@
-# Contributing
+# コントリビューションについて
 
-This repository (`oss`) is a **read-only public mirror**.
+このリポジトリ（`oss`）は **読み取り専用の公開ミラー** です。
 
-- We do **not** accept external Pull Requests or Issues here.
-- All development happens in a separate private repository (`oss-dev`).
-- Published code is generated automatically from `oss-dev/public/` via a
-  `git subtree split` and merged through an internal Pull Request.
+- このリポジトリでは、外部からの Pull Request や Issue は受け付けていません。
+- 開発は別の非公開リポジトリ（`oss-dev`）で行います。
+- 公開コードは `oss-dev/public/` から `git subtree split` により自動生成され、
+  内部レビュー用の Pull Request を経由してマージされます。
 
-If you found a bug or have a request, please contact the maintainers through
-the channels listed in the repository description.
+不具合報告や要望がある場合は、リポジトリ説明欄に記載された連絡先から
+メンテナへご連絡ください。

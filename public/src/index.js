@@ -1,16 +1,15 @@
 /**
- * Public API of the `oss` package.
+ * `oss` パッケージの公開API。
  *
- * NOTE: Everything under `public/` is mirrored to the public `oss` repository
- * by the `sync-public` GitHub Actions workflow. Do NOT put private/internal
- * code here.
+ * `public/` 配下は GitHub Actions により公開リポジトリ `oss` へ同期されます。
+ * 非公開コードや内部用コードは置かないでください。
  */
 
 /**
- * Build a friendly greeting.
+ * あいさつ文を作成する。
  *
- * @param {string} [name="world"] The name to greet.
- * @returns {string} A greeting message.
+ * @param {string} [name="world"] あいさつ対象の名前。
+ * @returns {string} あいさつ文。
  */
 export function greet(name = "world") {
   if (typeof name !== "string") {
@@ -21,10 +20,10 @@ export function greet(name = "world") {
 }
 
 /**
- * Sum a list of numbers.
+ * 数値の配列を合計する。
  *
- * @param {number[]} [values=[]] Numbers to add together.
- * @returns {number} The total.
+ * @param {number[]} [values=[]] 合計する数値の配列。
+ * @returns {number} 合計値。
  */
 export function sum(values = []) {
   if (!Array.isArray(values)) {

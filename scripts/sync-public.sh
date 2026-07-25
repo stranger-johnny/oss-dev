@@ -1,14 +1,15 @@
 #!/usr/bin/env bash
 #
-# Publish oss-dev/public/ to the public `oss` repository as a PR.
+# oss-dev/public/ を公開リポジトリ `oss` へPRとして同期する。
 #
-# This is the manual equivalent of .github/workflows/sync-public.yml.
-# It performs a `git subtree split` of `public/`, pushes the result to a
-# `sync/<timestamp>` branch on `oss`, and opens a Pull Request into main.
+# .github/workflows/sync-public.yml と同じ処理をローカルで実行する。
+# `public/` を `git subtree split` で切り出し、`oss` の `sync/<timestamp>`
+# ブランチへ push して、main 向けのPull Requestを作成する。
 #
-# Requirements:
-#   - git, and the GitHub CLI (`gh`) authenticated against `oss`.
-#   - Run from a clean checkout of oss-dev on the branch you want to publish.
+# 必要なもの:
+#   - git
+#   - `oss` へ認証済みの GitHub CLI (`gh`)
+#   - clean な oss-dev 作業ツリー
 #
 set -euo pipefail
 
@@ -26,7 +27,7 @@ if [[ -n "$(git status --porcelain)" ]]; then
   exit 1
 fi
 
-# Register the public repo as a remote (idempotent).
+# 公開リポジトリの remote を登録する（登録済みなら何もしない）。
 if ! git remote get-url "$PUBLIC_REMOTE" >/dev/null 2>&1; then
   git remote add "$PUBLIC_REMOTE" "git@github.com:${PUBLIC_REPO}.git"
 fi

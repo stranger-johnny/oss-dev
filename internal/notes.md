@@ -1,7 +1,7 @@
-# Internal notes (never published)
+# 内部メモ（非公開）
 
-This directory stays private. Use it for design docs, experiments, internal
-scripts, and anything that must not be mirrored to the public `oss` repo.
+このディレクトリは非公開です。設計メモ、実験、内部スクリプトなど、
+公開リポジトリ `oss` に同期してはいけないものを置きます。
 
-- Publishable code lives in `../public/` only.
-- If something here needs to ship, move it into `../public/` intentionally.
+- 公開対象のコードは `../public/` だけに置きます。
+- ここにある内容を公開する必要がある場合は、意図的に `../public/` へ移動してください。
