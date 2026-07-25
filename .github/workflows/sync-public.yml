@@ -64,10 +64,31 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.PUBLIC_SYNC_TOKEN }}
           BRANCH: ${{ steps.split.outputs.branch }}
+          # The developer who triggered this run (push author / manual runner).
+          ACTOR: ${{ github.actor }}
         run: |
-          gh pr create \
+          # PR is opened by the token identity (a bot), but the commits inside
+          # keep their original authors (preserved by `git subtree split`), and
+          # we assign + mention the triggering developer so credit is clear.
+          cat > /tmp/pr-body.md <<EOF
+          Automated publish from \`oss-dev/${PREFIX}\` via \`git subtree split\`.
+
+          - Triggered by: @${ACTOR}
+          - Source commit: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/commit/${GITHUB_SHA}
+
+          > Note: this PR was opened by an automation bot, but the commit
+          > authors above are the real contributors.
+          EOF
+
+          PR_URL="$(gh pr create \
             --repo "$PUBLIC_REPO" \
             --base "$BASE_BRANCH" \
             --head "$BRANCH" \
             --title "Sync public from oss-dev ($BRANCH)" \
-            --body "Automated publish from \`oss-dev/${PREFIX}\` via \`git subtree split\`.\n\nSource commit: ${GITHUB_SHA}"
+            --body-file /tmp/pr-body.md)"
+          echo "Created PR: $PR_URL"
+
+          # Attribute the PR to the triggering developer (non-fatal if they
+          # cannot be assigned, e.g. no access to the public repo).
+          gh pr edit "$PR_URL" --add-assignee "$ACTOR" \
+            || echo "::warning::Could not assign @${ACTOR} to the PR."
