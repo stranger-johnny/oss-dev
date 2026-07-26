@@ -10,12 +10,6 @@ on:
     paths:
       - "public/**"
       - ".github/workflows/sync-public.yml"
-  workflow_dispatch:
-    inputs:
-      title:
-        description: "公開PRのタイトル（未入力ならソースコミットの件名を使う）"
-        required: false
-        type: string
 
 concurrency:
   group: sync-public
@@ -36,55 +30,45 @@ jobs:
       - name: Checkout oss-dev
         uses: actions/checkout@v4
 
-      - name: Configure deploy key
+      - name: Prepare SSH access to oss and publish a sync branch
         env:
           DEPLOY_KEY: ${{ secrets.OSS_DEPLOY_KEY }}
-        run: |
-          if [ -z "$DEPLOY_KEY" ]; then
-            echo "::error::OSS_DEPLOY_KEY secret is not set."
-            exit 1
-          fi
-          mkdir -p ~/.ssh
-          printf '%s\n' "$DEPLOY_KEY" > ~/.ssh/oss_deploy
-          chmod 600 ~/.ssh/oss_deploy
-          ssh-keyscan -t rsa,ed25519 github.com >> ~/.ssh/known_hosts 2>/dev/null
-          cat > ~/.ssh/config <<'EOF'
-          Host github.com
-            IdentityFile ~/.ssh/oss_deploy
-            IdentitiesOnly yes
-          EOF
-
-      - name: Publish public/ to a sync branch
-        id: sync
-        env:
-          TITLE_INPUT: ${{ inputs.title }}
           GIT_AUTHOR_NAME: github-actions[bot]
           GIT_AUTHOR_EMAIL: 41898282+github-actions[bot]@users.noreply.github.com
           GIT_COMMITTER_NAME: github-actions[bot]
           GIT_COMMITTER_EMAIL: 41898282+github-actions[bot]@users.noreply.github.com
         run: |
-          git remote add public "git@github.com:${PUBLIC_REPO}.git"
-          git fetch public "$BASE_BRANCH"
-          BRANCH="sync/$(date -u +%Y%m%d-%H%M%S)-${GITHUB_SHA::7}"
-          # コミットメッセージ＝PRタイトル（単一コミットならGitHubが初期値に使う）。
-          MESSAGE="${TITLE_INPUT:-$(git log -1 --format=%s HEAD)}"
-          # public/ の tree を、oss/main を親にした1コミットにして push する。
-          TREE="$(git rev-parse "HEAD:${PREFIX}")"
-          COMMIT="$(git commit-tree "$TREE" -p "public/${BASE_BRANCH}" -m "$MESSAGE")"
-          git push public "${COMMIT}:refs/heads/${BRANCH}"
-          echo "branch=$BRANCH" >> "$GITHUB_OUTPUT"
+          # deploy key はあらかじめ作成し、公開鍵を oss の Deploy keys に、
+          # 秘密鍵を oss-dev の OSS_DEPLOY_KEY Secret に登録しておく。
+          # GitHub Actions の実行環境は毎回使い捨てなので、ここで一時的な
+          # ssh-agent に秘密鍵を読み込ませる。これ以降の git fetch / push は
+          # SSH が自動的にこの agent の鍵を使うため、GIT_SSH_COMMAND は不要。
+          if [ -z "$DEPLOY_KEY" ]; then
+            echo "::error::OSS_DEPLOY_KEY secret is not set."
+            exit 1
+          fi
+          eval "$(ssh-agent -s)"
+          printf '%s\n' "$DEPLOY_KEY" | ssh-add -
 
-      - name: Emit "Create PR" link
-        env:
-          BRANCH: ${{ steps.sync.outputs.branch }}
-        run: |
-          COMPARE_URL="${GITHUB_SERVER_URL}/${PUBLIC_REPO}/compare/${BASE_BRANCH}...${BRANCH}?expand=1"
-          {
-            echo "### 公開PRを作成してください"
-            echo ""
-            echo "同期ブランチ \`${BRANCH}\` を \`${PUBLIC_REPO}\` に push しました。"
-            echo "次のリンクからPRを作成すると、作成者はあなた自身になります。"
-            echo ""
-            echo "[Compare & pull request →](${COMPARE_URL})"
-          } >> "$GITHUB_STEP_SUMMARY"
-          echo "Compare URL: ${COMPARE_URL}"
+          # GitHub のホスト鍵を登録し、接続先が本物であることを確認できるようにする。
+          install -d -m 700 "$HOME/.ssh"
+          ssh-keyscan -t rsa,ed25519 github.com >> "$HOME/.ssh/known_hosts" 2>/dev/null
+
+          # 公開リポジトリの main を取得する。
+          # 後で作る同期コミットの親にするため、oss 側の履歴が通常のPRとしてつながる。
+          git remote add public "git@github.com:${PUBLIC_REPO}.git"
+          public_base_ref="refs/remotes/public/${BASE_BRANCH}"
+          git fetch public "${BASE_BRANCH}:${public_base_ref}"
+
+          # oss-dev/public/ の中身だけを1つのスナップショットコミットにする。
+          # oss-dev 側の非公開履歴や internal/ は公開されない。
+          public_tree="$(git rev-parse "HEAD:${PREFIX}")"
+          sync_commit="$(git commit-tree "$public_tree" \
+            -p "$public_base_ref" \
+            -m "chore: sync public from oss-dev")"
+
+          # スナップショットコミットを oss の sync/* ブランチとして push する。
+          # PR作成とレビューは、この後に本人が GitHub 上で行う。
+          sync_branch="sync/$(date -u +%Y%m%d-%H%M%S)-${GITHUB_SHA::7}"
+          git push public "${sync_commit}:refs/heads/${sync_branch}"
+          echo "Pushed ${sync_branch} to ${PUBLIC_REPO}."

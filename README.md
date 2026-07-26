@@ -3,7 +3,8 @@
 公開リポジトリ [`oss`](https://github.com/stranger-johnny/oss) の開発用リポジトリです。
 
 このリポジトリでは、公開してよいコードだけを `public/` 配下で管理します。
-`public/` の内容は GitHub Actions により `oss` へ同期され、`oss` 側に Pull Request として作成されます。
+`public/` の内容は GitHub Actions により `oss` の同期ブランチへ反映されます。
+Pull Request は、同期後に本人が GitHub 上で作成します。
 
 ## ディレクトリ構成
 
@@ -11,11 +12,9 @@
 oss-dev/
 ├─ public/            # 公開対象。ここだけが `oss` に反映される
 ├─ internal/          # 非公開。`oss` には反映されない
-├─ scripts/
-│  └─ sync-public.sh  # 手動公開用スクリプト（Actions と同じ処理）
 └─ .github/workflows/
    ├─ ci.yml          # `public/` のテストを実行
-   └─ sync-public.yml # `public/` を `oss` に同期してPRを作成
+   └─ sync-public.yml # `public/` を `oss` の同期ブランチへ反映
 ```
 
 ## 基本ルール
@@ -39,14 +38,14 @@ oss-dev/
 ## 公開フロー
 
 `oss-dev/main` で `public/**` が変更されると、GitHub Actions が自動で `oss` に
-同期ブランチを push します。手動実行も可能です。
-PRの作成だけは、作成者を実際の開発者にするため本人がワンクリックで行います。
+同期ブランチを push します。
+PRの作成だけは、作成者を実際の開発者にするため本人が行います。
 
 ```text
 oss-dev/main
   ↓ (CI 自動・デプロイキーで push)
 public/ を1コミットにした sync/* ブランチ（親は oss/main）
-  ↓ (本人がジョブサマリの Compare リンクをクリック)
+  ↓ (本人が GitHub 上でPRを作成)
 oss:main への Pull Request 作成（作成者=本人）
   ↓
 メンテナがレビューしてマージ
@@ -56,7 +55,7 @@ oss:main への Pull Request 作成（作成者=本人）
 
 1. `public/` の内容を、`oss/main` を親にした1コミットにまとめる（CI）
 2. それを `oss` の `sync/<timestamp>` ブランチへ push する（CI）
-3. ジョブサマリに出力される Compare リンクから、本人がPRを作成する
+3. 本人が GitHub 上で同期ブランチからPRを作成する
 
 補足:
 
@@ -106,13 +105,3 @@ ssh-keygen -t ed25519 -N "" -f oss-deploy -C "oss-dev sync"
 - Pull Request 経由の更新を必須にする
 - 直接 push を禁止する
 - CI の成功を必須にする
-
-## 手動で公開PRを作る場合
-
-通常は GitHub Actions が自動で実行しますが、ローカルから同じ処理を実行することもできます。
-
-```bash
-./scripts/sync-public.sh
-```
-
-実行前に、GitHub CLI (`gh`) が認証済みであること、作業ツリーが clean であることを確認してください。
