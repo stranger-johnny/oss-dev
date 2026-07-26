@@ -20,7 +20,7 @@ export function greet(name = "world") {
 }
 
 /**
- * 数値の配列を合計する。
+ * 数値の配列を合計する
  *
  * @param {number[]} [values=[]] 合計する数値の配列。
  * @returns {number} 合計値。
